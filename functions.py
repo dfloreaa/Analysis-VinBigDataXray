@@ -1,4 +1,5 @@
 import os
+import random
 import pandas as pd
 import numpy as np
 from ipywidgets import interact, interactive, IntSlider, ToggleButtons
@@ -94,8 +95,8 @@ class Datos:
             self.patologias[id_patologia] = ClasePatologia(id_patologia)
             print(".", end = "")
 
-    def ejemplo(self, id_clase_raw, num_ejemplo = 0):
-        id_clase = str(id_clase_raw)
+    def ejemplo(self, id_clase_patologia, num_ejemplo = 0):
+        id_clase = str(id_clase_patologia)
         plt.figure(figsize = (7,7))
 
         pick = self.patologias[id_clase].dicom[num_ejemplo]
@@ -107,15 +108,20 @@ class Datos:
 
         # Plotear caja extraido de https://stackoverflow.com/questions/37435369/matplotlib-how-to-draw-a-rectangle-on-image
         print(nombre_file)
-        x_min = self.train.loc[self.train["image_id"] == nombre_file].x_min.iat[-1]
-        y_min = self.train.loc[self.train["image_id"] == nombre_file].y_min.iat[-1]
-        x_max = self.train.loc[self.train["image_id"] == nombre_file].x_max.iat[-1]
-        y_max = self.train.loc[self.train["image_id"] == nombre_file].y_max.iat[-1]
 
-        plt.gca().add_patch(Rectangle((x_min, y_min), x_max - x_min, y_max - y_min, linewidth = 1, edgecolor = 'r', facecolor = 'none'))
+        for index, row in self.train.loc[self.train["image_id"] == nombre_file].iterrows():
+            class_id = str(row["class_id"])
 
-    def distribucion_pixeles(self, id_clase_raw, num_ejemplo = 0):
-        id_clase = str(id_clase_raw)
+            if class_id == id_clase:
+                x_min = row["x_min"]
+                y_min = row["y_min"]
+                x_max = row["x_max"]
+                y_max = row["y_max"]
+
+                plt.gca().add_patch(Rectangle((x_min, y_min), x_max - x_min, y_max - y_min, linewidth = 1, edgecolor = "r", facecolor = 'none'))
+
+    def distribucion_pixeles(self, id_clase_patologia, num_ejemplo = 0):
+        id_clase = str(id_clase_patologia)
         pick = self.patologias[id_clase].dicom[num_ejemplo]
 
         nombre_file = pick[1]
@@ -132,6 +138,43 @@ class Datos:
         plt.title(f"Distribución de Pixeles de la Imagen")
         plt.xlabel('Intensidad del Pixel')
         plt.ylabel('# de pixeles')
+
+    def ejemplos_random_all(self):
+        for i in range(14):
+            id_clase = str(i)
+            pick = random.choice(self.patologias[id_clase].dicom)
+
+            plt.subplot(4, 4, i + 1)
+            plt.imshow(pick[0], "gray")
+            plt.title(self.classes[str(i)])
+            nombre_file = pick[1]
+            for _, row in self.train.loc[self.train["image_id"] == nombre_file].iterrows():
+                class_id = str(row["class_id"])
+
+                if class_id == id_clase:
+                    x_min = row["x_min"]
+                    y_min = row["y_min"]
+                    x_max = row["x_max"]
+                    y_max = row["y_max"]
+
+                    plt.gca().add_patch(Rectangle((x_min, y_min), x_max - x_min, y_max - y_min, linewidth = 1, edgecolor = "r", facecolor = 'none'))
+
+    def all_pat_img(self, num_ejemplo = 0):
+        carpeta = str(int((num_ejemplo - 1)/5))
+        pick = self.patologias[carpeta].dicom[num_ejemplo - (int(num_ejemplo/5) * 5)]
+        nombre_file = pick[1]
+        plt.imshow(pick[0], "gray")
+
+        colores = {"0": "tab:blue", "1": "tab:orange", "2": "tab:green", "3": "tab:red", "4": "tab:purple", "5": "tab:brown", "6": "tab:pink", "7": "tab:gray", "8": "tab:olive", "9": "tab:cyan", "10": "gold", "11": "lime", "12": "mediumpurple", "13": "azure", "14": None}
+
+        for index, row in self.train.loc[self.train["image_id"] == nombre_file].iterrows():
+            x_min = row["x_min"]
+            y_min = row["y_min"]
+            x_max = row["x_max"]
+            y_max = row["y_max"]
+            class_id = str(row["class_id"])
+
+            plt.gca().add_patch(Rectangle((x_min, y_min), x_max - x_min, y_max - y_min, linewidth = 1, edgecolor = colores[class_id], facecolor = 'none'))
 
 
 class ClasePatologia:
@@ -159,7 +202,7 @@ class ClasePatologia:
                 imagen_no_end = imagen[:-6]
 
                 lista_datos.append((data, imagen_no_end))
-                break
+
         return lista_datos
 
 
