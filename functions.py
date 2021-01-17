@@ -186,6 +186,43 @@ class Datos:
                                           y_min, linewidth=1, edgecolor=colores[class_id], facecolor='none'))
 
 
+    def df_r_summary(self, order = "No"):
+
+        if order:
+            if order not in ["asc", "dsc"]:
+                raise ValueError("Por favor señala alguna opción entre asc/dsc/False")
+
+        # Dataframe del número de samples de cada clase en la dataframe
+        print(f"TRAIN SET\n")
+
+        # Total del número de samples
+        total = self.train.shape[0]
+        print(f"TOTAL DE LABELS (Número de filas): {total} labels")
+        samples_unicas = self.train.image_id.unique().shape[0]
+        print(f"TOTAL DE SAMPLES ÚNICAS: {samples_unicas} samples\n")
+
+        # Cálculo de labels para cada radiologo
+        ids = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8', 'R9', 'R10',
+       'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17']
+        n_samples = list(map(lambda x: self.n_samples_for_r(x), ids))
+        porcentaje = [str(round((samples / total) * 100, 1)) + "%" for samples in n_samples]
+
+        summary = pd.DataFrame(list(zip(ids, n_samples, porcentaje)))
+        summary.columns = ["ID de Radiolog@", "N° de Samples", "% del Total"]
+        
+        if order == "asc" or order == "dsc":
+            summary["% del Total"] = summary["% del Total"].map(lambda x: float(x[:-1]))
+            # FALSE PARA DESCENDIENTE
+            orden = True if order == "asc" else False
+            summary = summary.sort_values("% del Total", ascending = orden)
+            summary["% del Total"] = summary["% del Total"].map(lambda x: str(x) + "%")
+        
+        return summary
+
+    def n_samples_for_r(self, rad_id):
+        # Número de samples de cada radiólogo dado su id
+        return self.train.loc[self.train["rad_id"] == rad_id].shape[0]
+
 class ClasePatologia:
     def __init__(self, id_pat, load_all_ex):
         self.id = id_pat
