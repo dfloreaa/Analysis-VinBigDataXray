@@ -40,8 +40,13 @@ class Datos:
         else:
             raise ValueError("Especificar tipo de dataframe [train] o [test]")
 
-    def df_summary(self, dataframe="train"):
+    def df_summary(self, dataframe="train", order = False):
         # Dataframe del número de samples de cada clase en la dataframe
+
+        if order:
+            if order not in ["asc", "dsc"]:
+                raise ValueError("Por favor señala alguna opción entre asc/dsc/False")
+
         print(f"{dataframe.upper()} SET\n")
 
         # Total del número de samples
@@ -59,6 +64,14 @@ class Datos:
 
         summary = pd.DataFrame(list(zip(clases, n_samples, porcentaje)))
         summary.columns = ["Nombre de la Clase", "N° de Samples", "% del Total"]
+
+        if order == "asc" or order == "dsc":
+            summary["% del Total"] = summary["% del Total"].map(lambda x: float(x[:-1]))
+            # FALSE PARA DESCENDIENTE
+            orden = True if order == "asc" else False
+            summary = summary.sort_values("% del Total", ascending = orden)
+            summary["% del Total"] = summary["% del Total"].map(lambda x: str(x) + "%")
+
         return summary
 
         # PARA HACERLO DIRECTAMENTE EN PYTHON
@@ -186,7 +199,7 @@ class Datos:
                                           y_min, linewidth=1, edgecolor=colores[class_id], facecolor='none'))
 
 
-    def df_r_summary(self, order = "No"):
+    def df_r_summary(self, order = False):
 
         if order:
             if order not in ["asc", "dsc"]:
@@ -222,6 +235,54 @@ class Datos:
     def n_samples_for_r(self, rad_id):
         # Número de samples de cada radiólogo dado su id
         return self.train.loc[self.train["rad_id"] == rad_id].shape[0]
+
+    def IoU(self, box_1, box_2):
+        # Calcula la Interseciton Over Union entre dos bounding boxes de tipo = [xmin, ymin, xmax, ymax]
+        x1 = max(box_1[0], box_2[0])
+        y1 = max(box_1[1], box_2[1])
+        x2 = max(box_1[2], box_2[2])
+        y2 = max(box_1[3], box_2[3])
+
+        area_interseccion = max(0, x2 - x1) * max(0, y2 - y1)
+        area_total = ((box_1[2] - box_1[0]) * (box_1[3] - box_1[1])) + ((box_2[2] - box_2[0]) * (box_2[3] - box_2[1]))
+
+        return area_interseccion/area_total
+
+    def calidad_mediciones_cardiologos(self, threshold = 0.5):
+        ids = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8', 'R9', 'R10',
+       'R11', 'R12', 'R13', 'R14', 'R15', 'R16', 'R17']
+        scores = []
+        unico_rad = []
+        unico_no_coincidentes = []
+        diagnosticos_unicos = []
+        diagnosticos_unicos_no_coincidentes = []
+
+        for radiologo in ids:
+            score = 0
+            unico = 0
+            unc = 0
+            for _, row in self.train.loc[self.train["rad_id"] == radiologo].iterrows():
+                if self.train.loc[(self.train["rad_id"] != radiologo) & (self.train["class_id"] != 14) & (self.train["image_id"] == row["image_id"])].shape[0] == 0:
+                    unico += 1
+                    if self.train.loc[(self.train["rad_id"] != radiologo) & (self.train["class_id"] == 14) & (self.train["image_id"] == row["image_id"])].shape[0] != 0:
+                        unc += 1
+
+                for __, row_img in self.train.loc[(self.train["rad_id"] != radiologo) & (self.train["image_id"] == row["image_id"])].iterrows():
+                    if self.IoU([row["x_min"], row["y_min"], row["x_max"], row["y_max"]], [row_img["x_min"], row_img["y_min"], row_img["x_max"], row_img["y_max"]]) >= threshold:
+                        score += 1
+                    # AGREGAR DIAGNOSTICOS UNICOS Y NO COINCIDENTES
+                    
+            scores.append(score)
+            unico_rad.append(unico)
+            unico_no_coincidentes.append(unc)
+
+        summary = pd.DataFrame(list(zip(ids, scores, unico_rad, unico_no_coincidentes)))
+        summary.columns = ["ID de Radiolog@", f"Labels coincidentes con otr@s ragiolog@s con IoU > {threshold}", "Cantidad de Labels solo diagnosticadas", "Cantidad de diagnósticos únicos designados negativos por otros expertos"]
+
+        return summary
+
+
+
 
 class ClasePatologia:
     def __init__(self, id_pat, load_all_ex):
