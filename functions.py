@@ -9,7 +9,30 @@ import seaborn as sns
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_voi_lut
 import random
+from skimage import exposure
+from IPython.display import clear_output
 
+
+# Extraido de https://www.mikulskibartosz.name/how-to-display-a-progress-bar-in-jupyter-notebook/
+
+def update_progress(step, total):
+    bar_length = 20
+    progress = step/total
+    if isinstance(progress, int):
+        progress = float(progress)
+    if not isinstance(progress, float):
+        progress = 0
+    if progress < 0:
+        progress = 0
+    if progress >= 1:
+        progress = 1
+
+    block = int(round(bar_length * progress))
+
+    clear_output(wait = True)
+    text = "Progreso: [{0}] {1:.1f}%".format( "#" * block + "-" * (bar_length - block), progress * 100)
+    print(f"{step}/{total} patologías importadas")
+    print(text)
 
 class Datos:
     def __init__(self, all_examples=True):
@@ -106,10 +129,11 @@ class Datos:
             raise ValueError("Especificar tipo de dataframe [train] o [test]")
 
     def cargar_patologias(self, load_all):
-        print("Cargando ejemplos de 14 patologías distintas...")
+        contador = 0
         for id_patologia in self.classes.keys():
             self.patologias[id_patologia] = ClasePatologia(id_patologia, load_all)
-            print(".", end="")
+            update_progress(contador, 14)
+            contador += 1
 
     def ejemplo(self, id_clase_patologia, num_ejemplo=0):
         id_clase = str(id_clase_patologia)
@@ -281,7 +305,30 @@ class Datos:
 
         return summary
 
+    def pre_after_normalization(self, id_clase_patologia, num_ejemplo):
+        # Se usa el método de normalización CLAHE, presente en la librería scikit-image
+        id_clase = str(id_clase_patologia)
+        pick = self.patologias[id_clase].dicom[num_ejemplo]
 
+        nombre_file = pick[1]
+
+        img_norm = exposure.equalize_adapthist(pick[0]/np.max(pick[0]))
+
+        print(
+            f"Antes de normalizar: Promedio de pixeles {np.mean(pick[0]):.4f} y Desviación Estándar {np.std(pick[0]):.4f}")
+        print(
+            f"Después de normalizar: Promedio de pixeles {np.mean(img_norm):.4f} y Desviación Estándar {np.std(img_norm):.4f}")
+
+
+        plt.figure(figsize=(8, 8))
+
+        plt.subplot(3, 3, 1)
+        plt.imshow(pick[0], "gray")
+        plt.title(nombre_file)
+
+        plt.subplot(3, 3, 3)
+        plt.imshow(img_norm, "gray")
+        plt.title(f"Imagen Normalizada")
 
 
 class ClasePatologia:
